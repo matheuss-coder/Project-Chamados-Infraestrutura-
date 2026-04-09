@@ -1,0 +1,2715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Técnico — Chamados</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f0f2f8;
+    --surface: #ffffff;
+    --surface2: #f7f8fc;
+    --border: #e2e5ef;
+    --text: #1a1b2e;
+    --muted: #8890b0;
+    --accent: #5b4fff;
+    --accent-light: rgba(91,79,255,0.08);
+
+    --col-aberto: #3b82f6;
+    --col-andamento: #f59e0b;
+    --col-aguardando: #8b5cf6;
+    --col-resolvido: #10b981;
+    --col-fechado: #6b7280;
+
+    --p-baixa: #10b981;
+    --p-media: #f59e0b;
+    --p-alta: #f97316;
+    --p-critica: #ef4444;
+
+    --radius: 14px;
+    --card-radius: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 240px;
+    background: var(--text);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 1rem;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.5rem 0.5rem 2rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 1.5rem;
+  }
+
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, #5b4fff, #9d97ff);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+  }
+
+  .logo-text { font-size: 1rem; font-weight: 700; color: #fff; line-height: 1.2; }
+  .logo-sub { font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 400; }
+
+  .nav-section {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    padding: 0 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.25rem;
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+  }
+
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .nav-item.active { background: var(--accent); color: #fff; }
+
+  .sidebar-bottom {
+    margin-top: auto;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 1rem;
+  }
+
+  .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5b4fff, #ff6584);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: white;
+  }
+
+  .user-info { flex: 1; }
+  .user-name { font-size: 0.85rem; font-weight: 600; color: #fff; }
+  .user-role { font-size: 0.7rem; color: rgba(255,255,255,0.4); }
+
+  /* ===== MAIN ===== */
+  .main {
+    margin-left: 240px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    flex-wrap: wrap;
+  }
+
+  .topbar h1 { font-size: 1.1rem; font-weight: 700; flex: 1; min-width: 180px; }
+
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.9rem;
+    min-width: 220px;
+  }
+
+  .search-box input {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    outline: none;
+    width: 100%;
+  }
+
+  .filter-select {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 0.5rem 0.9rem;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .btn-refresh {
+    padding: 0.5rem 1rem;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-refresh:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(91,79,255,0.3); }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    padding: 1.5rem 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: transform 0.2s;
+  }
+
+  .stat-card:hover { transform: translateY(-2px); }
+
+  .stat-icon {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+  }
+
+  .stat-info { flex: 1; }
+  .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+  .stat-label { font-size: 0.72rem; color: var(--muted); font-weight: 500; margin-top: 2px; }
+
+  /* Loading */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    gap: 12px;
+    color: var(--muted);
+  }
+
+  .loading-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bounce 1.2s ease infinite;
+  }
+
+  .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  /* ===== KANBAN ===== */
+  .kanban-area {
+    flex: 1;
+    padding: 0 2rem 2rem;
+    overflow-x: auto;
+  }
+
+  .kanban-board {
+    display: flex;
+    gap: 1.25rem;
+    min-width: max-content;
+    align-items: flex-start;
+  }
+
+  .kanban-col { width: 290px; flex-shrink: 0; }
+
+  .col-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.75rem 1rem;
+    border-radius: var(--card-radius);
+    margin-bottom: 0.75rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .col-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .col-count {
+    margin-left: auto;
+    background: rgba(0,0,0,0.12);
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .col-aberto .col-header { background: rgba(59,130,246,0.12); color: #2563eb; }
+  .col-aberto .col-dot { background: var(--col-aberto); }
+  .col-andamento .col-header { background: rgba(245,158,11,0.12); color: #d97706; }
+  .col-andamento .col-dot { background: var(--col-andamento); }
+  .col-aguardando .col-header { background: rgba(139,92,246,0.12); color: #7c3aed; }
+  .col-aguardando .col-dot { background: var(--col-aguardando); }
+  .col-resolvido .col-header { background: rgba(16,185,129,0.12); color: #059669; }
+  .col-resolvido .col-dot { background: var(--col-resolvido); }
+  .col-fechado .col-header { background: rgba(239,68,68,0.10); color: #dc2626; }
+  .col-fechado .col-dot { background: #ef4444; }
+
+  /* Ticket card */
+  .ticket-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .ticket-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    border-color: var(--accent);
+  }
+
+  .ticket-card:hover .delete-btn { opacity: 1; }
+
+  /* Delete button on card */
+  .delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid #fecaca;
+    background: #fff5f5;
+    color: #ef4444;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s;
+    z-index: 5;
+  }
+
+  .delete-btn:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+  .ticket-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 0.5rem;
+    padding-right: 28px;
+  }
+
+  .ticket-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .ticket-title { font-size: 0.875rem; font-weight: 600; line-height: 1.35; flex: 1; }
+
+  .ticket-category {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ticket-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.75rem;
+  }
+
+  .priority-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .p-baixa { background: rgba(16,185,129,0.12); color: #059669; }
+  .p-media { background: rgba(245,158,11,0.12); color: #d97706; }
+  .p-alta { background: rgba(249,115,22,0.12); color: #ea580c; }
+  .p-critica { background: rgba(239,68,68,0.12); color: #dc2626; }
+
+  .ticket-user { font-size: 0.72rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  .ticket-date { font-size: 0.68rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  .ticket-name-badge {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #9d97ff);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; font-weight: 700; color: white;
+  }
+
+  .ticket-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    flex: 1;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    min-width: 70px;
+  }
+
+  .action-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .empty-col {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    border: 2px dashed var(--border);
+    border-radius: var(--card-radius);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 580px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: modalIn 0.3s ease;
+  }
+
+  .modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .modal-header h2 { font-size: 1.1rem; flex: 1; }
+
+  .modal-close {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+
+  .modal-close:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .modal-body { padding: 1.5rem; }
+
+  .detail-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .detail-item label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .detail-item p { font-size: 0.9rem; font-weight: 500; }
+
+  .detail-desc {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text);
+    margin: 1rem 0;
+  }
+
+  .modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .modal-action {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modal-action:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .modal-action.danger { border-color: #fecaca; color: #ef4444; }
+  .modal-action.danger:hover { background: #ef4444; color: white; border-color: #ef4444; }
+  .modal-action.delete-action { border-color: #fecaca; color: #ef4444; margin-left: auto; }
+  .modal-action.delete-action:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--text);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    z-index: 10000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ===== CONFIRM DIALOG ===== */
+  .confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .confirm-overlay.open { display: flex; }
+
+  .confirm-box {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    animation: modalIn 0.25s ease;
+    border-top: 4px solid #ef4444;
+  }
+
+  .confirm-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+  .confirm-box h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .confirm-box p { font-size: 0.875rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.5; }
+
+  .confirm-actions { display: flex; gap: 0.75rem; justify-content: center; }
+
+  .btn-cancel {
+    padding: 0.65rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-cancel:hover { background: var(--border); }
+
+  .btn-delete-confirm {
+    padding: 0.65rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    background: #ef4444;
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-delete-confirm:hover { background: #dc2626; transform: translateY(-1px); }
+
+  /* ===== CHARTS VIEW ===== */
+  .charts-view {
+    display: none;
+    flex: 1;
+    padding: 1.5rem 2rem 2rem;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .charts-view.active { display: flex; }
+
+  .charts-topbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .charts-topbar h2 { font-size: 1rem; font-weight: 700; flex: 1; min-width: 150px; }
+
+  .chart-filter {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 0.45rem 0.85rem;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .btn-export-pdf {
+    padding: 0.5rem 1.1rem;
+    background: #ef4444;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-export-pdf:hover { background: #dc2626; transform: translateY(-1px); }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+
+  .chart-card.full-width { grid-column: 1 / -1; }
+
+  .chart-card h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-card h3 span {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-weight: 500;
+    margin-left: auto;
+  }
+
+  .chart-wrapper { position: relative; height: 280px; }
+  .chart-wrapper.tall { height: 320px; }
+
+  /* Summary cards in charts */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .summary-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .summary-item .val { font-size: 2rem; font-weight: 700; color: var(--text); }
+  .summary-item .lbl { font-size: 0.72rem; color: var(--muted); font-weight: 500; margin-top: 2px; }
+
+  /* Table in charts */
+  .rank-table { width: 100%; border-collapse: collapse; }
+  .rank-table th {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .rank-table td {
+    font-size: 0.875rem;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--bg);
+  }
+  .rank-table tr:last-child td { border-bottom: none; }
+  .rank-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .rank-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--accent);
+    min-width: 4px;
+    transition: width 0.4s ease;
+  }
+  .rank-num { font-weight: 700; color: var(--text); }
+
+
+  /* ===== CARD IMAGES ===== */
+  .card-images {
+    display: flex;
+    gap: 5px;
+    margin-top: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .card-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  .card-thumb:hover { transform: scale(1.08); }
+
+  .card-more-imgs {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    background: var(--accent-light);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Modal images gallery */
+  .modal-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .modal-img-wrap {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    aspect-ratio: 1;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  .modal-img-wrap:hover { transform: scale(1.03); }
+
+  .modal-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Lightbox */
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    backdrop-filter: blur(6px);
+  }
+
+  .lightbox.open { display: flex; }
+
+  .lightbox img {
+    max-width: 90vw;
+    max-height: 88vh;
+    border-radius: 10px;
+    object-fit: contain;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .lightbox-close {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 40px;
+    height: 40px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .lightbox-close:hover { background: #ef4444; }
+
+  .lightbox-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .lightbox-nav:hover { background: rgba(255,255,255,0.25); }
+  .lightbox-prev { left: 1.5rem; }
+  .lightbox-next { right: 1.5rem; }
+
+  .lightbox-counter {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 0.8rem;
+    padding: 4px 14px;
+    border-radius: 20px;
+  }
+
+
+  /* ===== REPORT VIEW ===== */
+  .report-view {
+    display: none;
+    flex: 1;
+    padding: 1.5rem 2rem 2rem;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .report-view.active { display: flex; }
+
+  .report-topbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .report-topbar h2 { font-size: 1rem; font-weight: 700; flex: 1; min-width: 150px; }
+
+  .btn-report-pdf {
+    padding: 0.5rem 1.1rem;
+    background: #5b4fff;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-report-pdf:hover { background: #4a3ee8; transform: translateY(-1px); }
+
+  .report-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  .report-table thead tr {
+    background: #1a1b2e;
+    color: #fff;
+  }
+
+  .report-table th {
+    padding: 0.75rem 0.9rem;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .report-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .report-table tbody tr:hover { background: var(--surface2); }
+  .report-table tbody tr:last-child { border-bottom: none; }
+
+  .report-table td {
+    padding: 0.7rem 0.9rem;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .report-table td.muted { color: var(--muted); font-size: 0.78rem; }
+
+  .tempo-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: rgba(16,185,129,0.1);
+    color: #059669;
+  }
+  .tempo-badge.medio { background: rgba(245,158,11,0.1); color: #d97706; }
+  .tempo-badge.lento { background: rgba(239,68,68,0.1); color: #dc2626; }
+  .tempo-badge.aberto { background: rgba(139,92,246,0.1); color: #7c3aed; }
+
+  .report-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .report-stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .report-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .report-stat .r-val { font-size: 1.6rem; font-weight: 700; }
+  .report-stat .r-lbl { font-size: 0.72rem; color: var(--muted); font-weight: 500; }
+
+  .prio-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+
+  /* Solução do técnico */
+  .solucao-wrap {
+    margin-top: 1rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+  .solucao-wrap label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #10b981;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .solucao-textarea {
+    width: 100%;
+    background: rgba(16,185,129,0.05);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 90px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .solucao-textarea:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+  .solucao-textarea::placeholder { color: var(--muted); }
+
+  .btn-save-solucao {
+    margin-top: 0.5rem;
+    padding: 0.5rem 1.2rem;
+    background: #10b981;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-save-solucao:hover { background: #059669; transform: translateY(-1px); }
+  .btn-save-solucao:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* Solução já salva (read) */
+  .solucao-saved {
+    background: rgba(16,185,129,0.06);
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text);
+    margin-top: 0.5rem;
+    white-space: pre-wrap;
+  }
+
+  .solucao-saved-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .btn-edit-solucao {
+    padding: 0.3rem 0.75rem;
+    background: transparent;
+    border: 1px solid rgba(16,185,129,0.4);
+    border-radius: 6px;
+    color: #10b981;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-edit-solucao:hover { background: #10b981; color: #fff; border-color: #10b981; }
+
+  .solucao-edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 0.5rem;
+  }
+
+  .btn-cancel-solucao {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-cancel-solucao:hover { background: var(--bg); color: var(--text); }
+
+  /* pendencia column */
+  .col-pendencia .col-header { background: rgba(239,68,68,0.10); color: #dc2626; }
+  .col-pendencia .col-dot { background: #ef4444; }
+
+  /* Animations */
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🎯</div>
+    <div>
+      <div class="logo-text">INFRAESTRUTURA</div>
+      <div class="logo-sub">Painel Técnico</div>
+    </div>
+  </div>
+
+  <div class="nav-section">Menu</div>
+  <button class="nav-item active" id="nav-kanban" onclick="showView('kanban')">
+    <span>📋</span> Kanban Board
+  </button>
+  <button class="nav-item" id="nav-charts" onclick="showView('charts')">
+    <span>📊</span> Gráficos
+  </button>
+  <button class="nav-item" id="nav-report" onclick="showView('report')">
+    <span>📝</span> Relatório
+  </button>
+  <a class="nav-item" href="form.html" target="_blank">
+    <span>🔗</span> Link do Formulário
+  </a>
+
+  <div class="sidebar-bottom">
+    <div class="user-badge">
+      <div class="avatar">T</div>
+      <div class="user-info">
+        <div class="user-name">Técnico</div>
+        <div class="user-role">Administrador</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- ===== KANBAN VIEW ===== -->
+  <div id="kanban-view">
+    <div class="topbar">
+      <h1>📋 Kanban — Chamados</h1>
+      <div class="search-box">
+        <span>🔍</span>
+        <input type="text" id="searchInput" placeholder="Buscar chamado..." oninput="filterCards()">
+      </div>
+      <select class="filter-select" id="filterPriority" onchange="filterCards()">
+        <option value="">Todas prioridades</option>
+        <option value="baixa">🟢 Baixa</option>
+        <option value="media">🟡 Média</option>
+        <option value="alta">🟠 Alta</option>
+        <option value="critica">🔴 Crítica</option>
+      </select>
+      <select class="filter-select" id="filterCategory" onchange="filterCards()">
+        <option value="">Todas categorias</option>
+        <option value="eletrica">Elétrica</option>
+        <option value="hidraulica">Hidráulica</option>
+        <option value="serralheria">Serralheria</option>
+        <option value="jardinagem">Jardinagem</option>
+        <option value="segurança">Segurança/Empresa</option>
+        <option value="obra">Obra/Reforma</option>
+        <option value="conserto">Conserto</option>
+        <option value="reparo">Reparo</option>
+        <option value="limpeza">Limpeza</option>
+        <option value="outro">Outro</option>
+      </select>
+      <button class="btn-refresh" onclick="loadTickets()">↻ Atualizar</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(59,130,246,0.1);font-size:1.3rem">📥</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-aberto">—</div>
+          <div class="stat-label">Abertos</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.1);font-size:1.3rem">⚡</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-andamento">—</div>
+          <div class="stat-label">Em andamento</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(139,92,246,0.1);font-size:1.3rem">⏳</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-aguardando">—</div>
+          <div class="stat-label">Aguardando</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.1);font-size:1.3rem">✅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-resolvido">—</div>
+          <div class="stat-label">Resolvidos</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(107,114,128,0.1);font-size:1.3rem">🔒</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-fechado">—</div>
+          <div class="stat-label">Fechados c/ Pendência</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loadingState">
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+      <span style="margin-left:8px">Carregando chamados...</span>
+    </div>
+
+    <!-- Kanban -->
+    <div class="kanban-area" id="kanbanArea" style="display:none">
+      <div class="kanban-board">
+        <div class="kanban-col col-aberto">
+          <div class="col-header"><span class="col-dot"></span> Aberto <span class="col-count" id="cnt-aberto">0</span></div>
+          <div class="col-cards" id="col-aberto"></div>
+        </div>
+        <div class="kanban-col col-andamento">
+          <div class="col-header"><span class="col-dot"></span> Em Andamento <span class="col-count" id="cnt-andamento">0</span></div>
+          <div class="col-cards" id="col-andamento"></div>
+        </div>
+        <div class="kanban-col col-aguardando">
+          <div class="col-header"><span class="col-dot"></span> Aguardando <span class="col-count" id="cnt-aguardando">0</span></div>
+          <div class="col-cards" id="col-aguardando"></div>
+        </div>
+        <div class="kanban-col col-resolvido">
+          <div class="col-header"><span class="col-dot"></span> Resolvido <span class="col-count" id="cnt-resolvido">0</span></div>
+          <div class="col-cards" id="col-resolvido"></div>
+        </div>
+        <div class="kanban-col col-fechado">
+          <div class="col-header"><span class="col-dot"></span> Fechado c/ Pendência <span class="col-count" id="cnt-fechado">0</span></div>
+          <div class="col-cards" id="col-fechado"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CHARTS VIEW ===== -->
+  <div class="charts-view" id="charts-view">
+    <div class="charts-topbar">
+      <h2>📊 Relatório de Chamados</h2>
+      <select class="chart-filter" id="chartPeriod" onchange="updateCharts()">
+        <option value="month">Por Mês</option>
+        <option value="year">Por Ano</option>
+      </select>
+      <select class="chart-filter" id="chartYear" onchange="updateCharts()"></select>
+      <select class="chart-filter" id="chartSector" onchange="updateCharts()">
+        <option value="">Todos os Setores</option>
+      </select>
+      <button class="btn-export-pdf" onclick="exportPDF()">📄 Exportar PDF</button>
+    </div>
+
+    <!-- Summary row -->
+    <div class="summary-row" id="chartSummary">
+      <div class="summary-item">
+        <div class="val" id="sum-total">—</div>
+        <div class="lbl">Total de Chamados</div>
+      </div>
+      <div class="summary-item">
+        <div class="val" id="sum-abertos">—</div>
+        <div class="lbl">Abertos / Andamento</div>
+      </div>
+      <div class="summary-item">
+        <div class="val" id="sum-resolvidos">—</div>
+        <div class="lbl">Resolvidos / Fechados</div>
+      </div>
+    </div>
+
+    <div class="charts-grid" id="chartsGrid">
+      <!-- Chamados por período -->
+      <div class="chart-card">
+        <h3>📅 Chamados por Período <span id="period-label"></span></h3>
+        <div class="chart-wrapper">
+          <canvas id="chartTimeline"></canvas>
+        </div>
+      </div>
+
+      <!-- Chamados por setor -->
+      <div class="chart-card">
+        <h3>🏢 Chamados por Setor</h3>
+        <div class="chart-wrapper">
+          <canvas id="chartSectors"></canvas>
+        </div>
+      </div>
+
+      <!-- Chamados por categoria -->
+      <div class="chart-card">
+        <h3>🔧 Chamados por Categoria</h3>
+        <div class="chart-wrapper">
+          <canvas id="chartCategories"></canvas>
+        </div>
+      </div>
+
+      <!-- Chamados por prioridade -->
+      <div class="chart-card">
+        <h3>🚨 Chamados por Prioridade</h3>
+        <div class="chart-wrapper">
+          <canvas id="chartPriority"></canvas>
+        </div>
+      </div>
+
+      <!-- Ranking de setores -->
+      <div class="chart-card full-width">
+        <h3>🏆 Ranking de Setores por Número de Chamados</h3>
+        <table class="rank-table" id="rankTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Setor</th>
+              <th>Chamados</th>
+              <th style="width:40%">Proporção</th>
+            </tr>
+          </thead>
+          <tbody id="rankBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REPORT VIEW ===== -->
+  <div class="report-view" id="report-view">
+    <div class="report-topbar">
+      <h2>📝 Relatório Detalhado de Chamados</h2>
+      <select class="chart-filter" id="reportYear" onchange="updateReport()"></select>
+      <select class="chart-filter" id="reportMonth" onchange="updateReport()">
+        <option value="">Todos os meses</option>
+        <option value="0">Janeiro</option>
+        <option value="1">Fevereiro</option>
+        <option value="2">Março</option>
+        <option value="3">Abril</option>
+        <option value="4">Maio</option>
+        <option value="5">Junho</option>
+        <option value="6">Julho</option>
+        <option value="7">Agosto</option>
+        <option value="8">Setembro</option>
+        <option value="9">Outubro</option>
+        <option value="10">Novembro</option>
+        <option value="11">Dezembro</option>
+      </select>
+      <select class="chart-filter" id="reportSector" onchange="updateReport()">
+        <option value="">Todos os Setores</option>
+      </select>
+      <select class="chart-filter" id="reportStatus" onchange="updateReport()">
+        <option value="">Todos os Status</option>
+        <option value="aberto">Aberto</option>
+        <option value="andamento">Em Andamento</option>
+        <option value="aguardando">Aguardando</option>
+        <option value="resolvido">Resolvido</option>
+        <option value="fechado">Fechado c/ Pendência</option>
+      </select>
+      <button class="btn-report-pdf" onclick="exportReportPDF()">📄 Exportar PDF</button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="report-stats-row" id="reportStatsRow">
+      <div class="report-stat">
+        <div class="r-val" id="rstat-total" style="color:var(--accent)">—</div>
+        <div class="r-lbl">Total de Chamados</div>
+      </div>
+      <div class="report-stat">
+        <div class="r-val" id="rstat-resolvidos" style="color:#10b981">—</div>
+        <div class="r-lbl">Encerrados</div>
+      </div>
+      <div class="report-stat">
+        <div class="r-val" id="rstat-tempo" style="color:#f59e0b">—</div>
+        <div class="r-lbl">Tempo Médio de Resolução</div>
+      </div>
+      <div class="report-stat">
+        <div class="r-val" id="rstat-criticos" style="color:#ef4444">—</div>
+        <div class="r-lbl">Chamados Críticos</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="report-table-wrap">
+      <table class="report-table" id="reportTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Protocolo</th>
+            <th>Setor</th>
+            <th>Colaborador</th>
+            <th>Tipo de Serviço</th>
+            <th>Prioridade</th>
+            <th>Status</th>
+            <th>Abertura</th>
+            <th>Fechamento</th>
+            <th>Tempo</th>
+            <th>Solução Aplicada</th>
+          </tr>
+        </thead>
+        <tbody id="reportBody">
+          <tr><td colspan="10" class="report-empty">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+</main>
+
+<!-- Modal de detalhes -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="ticket-id" id="modal-id" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--muted)"></div>
+      <h2 id="modal-title"></h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-row">
+        <div class="detail-item"><label>Solicitante</label><p id="modal-nome"></p></div>
+        <div class="detail-item"><label>E-mail</label><p id="modal-email"></p></div>
+        <div class="detail-item"><label>Setor</label><p id="modal-setor"></p></div>
+        <div class="detail-item"><label>Telefone</label><p id="modal-tel"></p></div>
+        <div class="detail-item"><label>Categoria</label><p id="modal-cat"></p></div>
+        <div class="detail-item"><label>Prioridade</label><p id="modal-prio"></p></div>
+        <div class="detail-item"><label>Status</label><p id="modal-status"></p></div>
+        <div class="detail-item"><label>Aberto em</label><p id="modal-date"></p></div>
+      </div>
+      <div class="detail-item">
+        <label>Descrição</label>
+        <div class="detail-desc" id="modal-desc"></div>
+      </div>
+      <div id="modal-images" style="display:none;margin-top:0.5rem"></div>
+
+      <!-- Solução do técnico -->
+      <div class="solucao-wrap" id="solucaoWrap">
+        <div class="solucao-saved-header">
+          <label>🛠️ Solução Aplicada pelo Técnico</label>
+          <button class="btn-edit-solucao" id="btnEditSolucao" onclick="enableEditSolucao()" style="display:none">✏️ Editar</button>
+        </div>
+        <div id="solucao-display" class="solucao-saved" style="display:none"></div>
+        <textarea class="solucao-textarea" id="solucao-input" placeholder="Descreva aqui a solução aplicada, peças trocadas, procedimentos realizados..."></textarea>
+        <div class="solucao-edit-actions">
+          <button class="btn-save-solucao" id="btnSaveSolucao" onclick="saveSolucao()">💾 Salvar Solução</button>
+          <button class="btn-cancel-solucao" id="btnCancelSolucao" onclick="cancelEditSolucao()" style="display:none">Cancelar</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span style="font-size:0.8rem;color:var(--muted);align-self:center;margin-right:4px">Mover para:</span>
+      <button class="modal-action" onclick="changeStatus('aberto')">📥 Aberto</button>
+      <button class="modal-action" onclick="changeStatus('andamento')">⚡ Andamento</button>
+      <button class="modal-action" onclick="changeStatus('aguardando')">⏳ Aguardando</button>
+      <button class="modal-action" onclick="changeStatus('resolvido')">✅ Resolvido</button>
+      <button class="modal-action danger" onclick="changeStatus('fechado')">🔒 Fechar c/ Pendência</button>
+      <button class="modal-action delete-action" onclick="confirmDeleteFromModal()">🗑️ Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Dialog -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">🗑️</div>
+    <h3>Excluir chamado?</h3>
+    <p id="confirmText">Esta ação é irreversível. O chamado será permanentemente removido do sistema.</p>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-delete-confirm" onclick="executeDelete()">Sim, excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- RLS Error Modal -->
+<div class="confirm-overlay" id="rlsModal" style="z-index:3000">
+  <div class="confirm-box" style="max-width:520px;border-top-color:#f59e0b;text-align:left">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
+      <span style="font-size:1.8rem">🔐</span>
+      <div>
+        <h3 style="margin:0;font-size:1rem">Política RLS ausente no Supabase</h3>
+        <p style="margin:0;font-size:0.8rem;color:var(--muted)">O banco está bloqueando a exclusão</p>
+      </div>
+    </div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+      Acesse o <strong>SQL Editor</strong> do seu projeto no Supabase e execute o comando abaixo:
+    </p>
+    <div style="background:#1a1b2e;border-radius:8px;padding:1rem;position:relative;margin-bottom:1rem">
+      <pre id="rlsSqlCode" style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#9d97ff;margin:0;white-space:pre-wrap;line-height:1.6">DROP POLICY IF EXISTS "allow_delete_anon" ON public.chamados;
+CREATE POLICY "allow_delete_anon"
+ON public.chamados
+FOR DELETE
+TO anon
+USING (true);</pre>
+      <button onclick="copyRlsSql()" id="copyRlsBtn" style="position:absolute;top:8px;right:8px;background:rgba(91,79,255,0.2);border:1px solid rgba(91,79,255,0.4);border-radius:6px;color:#9d97ff;font-size:0.75rem;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif">Copiar</button>
+    </div>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.25rem">
+      Após executar, tente excluir novamente.<br>
+      <strong>supabase.com/dashboard → seu projeto → SQL Editor</strong>
+    </p>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn-delete-confirm" style="background:var(--accent)" onclick="closeRlsModal()">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-nav lightbox-prev" onclick="lightboxNav(-1);event.stopPropagation()">‹</button>
+  <img id="lightboxImg" src="" alt="">
+  <button class="lightbox-nav lightbox-next" onclick="lightboxNav(1);event.stopPropagation()">›</button>
+  <div class="lightbox-counter" id="lightboxCounter"></div>
+</div>
+
+<script>
+  // ====== CONFIGURAÇÃO SUPABASE ======
+  const SUPABASE_URL = 'https://wpvgzfjyjnwyunmkedtj.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indwdmd6Zmp5am53eXVubWtlZHRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzY3MTIsImV4cCI6MjA5MDcxMjcxMn0.laBGJGxPfZrIFmICBPrAO9R-bONN4ErKu4vzeuIb1bw';
+  // ==================================
+
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let allTickets = [];
+  let currentTicket = null;
+  let pendingDeleteId = null;
+  let chartInstances = {};
+  let currentView = 'kanban';
+
+  const catIcons = {
+    hardware: '🖥️', software: '💻', rede: '🌐', acesso: '🔐', impressora: '🖨️',
+    email: '📧', eletrica: '⚡', hidraulica: '💧', serralheria: '🔧',
+    jardinagem: '🌿', 'segurança': '🛡️', obra: '🏗️', conserto: '🔨',
+    reparo: '🛠️', limpeza: '🧹', outro: '⚙️'
+  };
+
+  const statuses = ['aberto','andamento','aguardando','resolvido','fechado'];
+
+  // ===== VIEW SWITCHING =====
+  function showView(view) {
+    currentView = view;
+    document.getElementById('kanban-view').style.display = view === 'kanban' ? 'flex' : 'none';
+    document.getElementById('kanban-view').style.flexDirection = 'column';
+    document.getElementById('charts-view').classList.toggle('active', view === 'charts');
+    document.getElementById('report-view').classList.toggle('active', view === 'report');
+
+    document.getElementById('nav-kanban').classList.toggle('active', view === 'kanban');
+    document.getElementById('nav-charts').classList.toggle('active', view === 'charts');
+    document.getElementById('nav-report').classList.toggle('active', view === 'report');
+
+    if (view === 'charts') {
+      populateChartFilters();
+      updateCharts();
+    }
+    if (view === 'report') {
+      populateReportFilters();
+      updateReport();
+    }
+  }
+
+  // ===== LOAD TICKETS =====
+  async function loadTickets() {
+    document.getElementById('loadingState').style.display = 'flex';
+    document.getElementById('kanbanArea').style.display = 'none';
+
+    const { data, error } = await sb
+      .from('chamados')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) { showToast('❌ Erro ao carregar: ' + error.message); return; }
+    allTickets = data || [];
+    renderBoard(allTickets);
+    if (currentView === 'charts') updateCharts();
+  }
+
+  function renderBoard(tickets) {
+    const counts = {};
+    statuses.forEach(s => counts[s] = 0);
+    tickets.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
+
+    document.getElementById('s-aberto').textContent = counts['aberto'];
+    document.getElementById('s-andamento').textContent = counts['andamento'];
+    document.getElementById('s-aguardando').textContent = counts['aguardando'];
+    document.getElementById('s-resolvido').textContent = counts['resolvido'];
+    document.getElementById('s-fechado').textContent = counts['fechado'];
+
+    statuses.forEach(status => {
+      const col = document.getElementById('col-' + status);
+      const cnt = document.getElementById('cnt-' + status);
+      const colTickets = tickets.filter(t => t.status === status);
+      cnt.textContent = colTickets.length;
+      if (colTickets.length === 0) {
+        col.innerHTML = '<div class="empty-col">Nenhum chamado</div>';
+        return;
+      }
+      col.innerHTML = colTickets.map(t => renderCard(t)).join('');
+    });
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('kanbanArea').style.display = 'block';
+  }
+
+  function renderCard(t) {
+    const date = new Date(t.created_at);
+    const dateStr = date.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+    const initials = t.nome ? t.nome.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase() : '?';
+    const icon = catIcons[t.categoria] || '⚙️';
+    const nextStatus = getNextStatus(t.status);
+
+    return `
+      <div class="ticket-card" onclick="openModal('${t.id}')">
+        <button class="delete-btn" onclick="event.stopPropagation(); confirmDelete('${t.id}', '${escHtml(t.ticket_id)}')" title="Excluir chamado">🗑️</button>
+        <div class="ticket-top">
+          <span class="ticket-id">${t.ticket_id}</span>
+          <span class="ticket-title">${escHtml(t.titulo)}</span>
+        </div>
+        <div class="ticket-category">${icon} ${t.categoria || 'Outro'}</div>
+        <div class="ticket-bottom">
+          <span class="priority-badge p-${t.prioridade}">${t.prioridade}</span>
+          <span class="ticket-user">
+            <span class="ticket-name-badge">${initials}</span>
+            ${escHtml((t.nome || '').split(' ')[0])}
+          </span>
+          <span class="ticket-date">${dateStr}</span>
+        </div>
+        ${t.solucao ? `
+        <div style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-size:0.68rem;color:#059669;line-height:1.4">
+          🛠️ <strong>Solução:</strong> ${escHtml(t.solucao.slice(0,80))}${t.solucao.length>80?'…':''}
+        </div>` : ''}
+        ${t.imagens && t.imagens.length > 0 ? `
+        <div class="card-images" onclick="event.stopPropagation()">
+          ${t.imagens.slice(0, 3).map((url, i) => `<img class="card-thumb" src="${url}" alt="img" onclick="openLightbox(${JSON.stringify(t.imagens)}, ${i})">`).join('')}
+          ${t.imagens.length > 3 ? `<div class="card-more-imgs" onclick="openLightbox(${JSON.stringify(t.imagens)}, 3)">+${t.imagens.length - 3}</div>` : ''}
+        </div>` : ''}
+        ${nextStatus ? `
+        <div class="ticket-actions" onclick="event.stopPropagation()">
+          <button class="action-btn" onclick="quickMove('${t.id}', '${nextStatus}')">→ ${nextStatus}</button>
+          ${t.status !== 'resolvido' ? `<button class="action-btn" onclick="quickMove('${t.id}', 'resolvido')">✅ Resolver</button>` : ''}
+        </div>` : ''}
+      </div>
+    `;
+  }
+
+  function getNextStatus(s) {
+    const flow = { aberto: 'andamento', andamento: 'aguardando', aguardando: 'resolvido' };
+    return flow[s] || null;
+  }
+
+  // ===== MODAL =====
+  function openModal(id) {
+    currentTicket = allTickets.find(t => t.id == id);
+    if (!currentTicket) return;
+    const t = currentTicket;
+    document.getElementById('modal-id').textContent = t.ticket_id;
+    document.getElementById('modal-title').textContent = t.titulo;
+    document.getElementById('modal-nome').textContent = t.nome;
+    document.getElementById('modal-email').textContent = t.email;
+    document.getElementById('modal-setor').textContent = t.setor || '—';
+    document.getElementById('modal-tel').textContent = t.telefone || '—';
+    document.getElementById('modal-cat').textContent = (catIcons[t.categoria] || '') + ' ' + (t.categoria || '—');
+    document.getElementById('modal-prio').textContent = t.prioridade;
+    document.getElementById('modal-status').textContent = t.status;
+    document.getElementById('modal-date').textContent = new Date(t.created_at).toLocaleString('pt-BR');
+    document.getElementById('modal-desc').textContent = t.descricao;
+
+    // Images
+    const imgContainer = document.getElementById('modal-images');
+    if (t.imagens && t.imagens.length > 0) {
+      imgContainer.innerHTML = '<label style="display:block;font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">📎 Imagens Anexadas</label>' +
+        '<div class="modal-images">' +
+        t.imagens.map((url, i) => `<div class="modal-img-wrap" onclick="openLightbox(${JSON.stringify(t.imagens)}, ${i})"><img src="${url}" alt="imagem ${i+1}"></div>`).join('') +
+        '</div>';
+      imgContainer.style.display = 'block';
+    } else {
+      imgContainer.style.display = 'none';
+      imgContainer.innerHTML = '';
+    }
+
+    // Solução
+    const solInput = document.getElementById('solucao-input');
+    const solDisplay = document.getElementById('solucao-display');
+    const btnSave = document.getElementById('btnSaveSolucao');
+    const btnEdit = document.getElementById('btnEditSolucao');
+    const btnCancel = document.getElementById('btnCancelSolucao');
+    if (t.solucao) {
+      solDisplay.textContent = t.solucao;
+      solDisplay.style.display = 'block';
+      solInput.value = t.solucao;
+      solInput.style.display = 'none';
+      btnSave.style.display = 'none';
+      btnEdit.style.display = 'flex';
+      btnCancel.style.display = 'none';
+    } else {
+      solDisplay.style.display = 'none';
+      solInput.value = '';
+      solInput.style.display = 'block';
+      btnSave.style.display = 'block';
+      btnEdit.style.display = 'none';
+      btnCancel.style.display = 'none';
+    }
+    btnSave.disabled = false;
+    btnSave.textContent = '💾 Salvar Solução';
+
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    currentTicket = null;
+  }
+
+  async function changeStatus(newStatus) {
+    if (!currentTicket) return;
+    const { error } = await sb.from('chamados').update({ status: newStatus }).eq('id', currentTicket.id);
+    if (error) { showToast('❌ Erro: ' + error.message); return; }
+    allTickets = allTickets.map(t => t.id === currentTicket.id ? { ...t, status: newStatus } : t);
+    closeModal();
+    renderBoard(filterTickets());
+    showToast('✅ Status atualizado para "' + newStatus + '"');
+  }
+
+  async function saveSolucao() {
+    if (!currentTicket) return;
+    const solucao = document.getElementById('solucao-input').value.trim();
+    const btn = document.getElementById('btnSaveSolucao');
+    btn.disabled = true;
+    btn.textContent = '⏳ Salvando...';
+
+    const { error } = await sb.from('chamados').update({ solucao }).eq('id', currentTicket.id);
+    if (error) {
+      showToast('❌ Erro ao salvar solução: ' + error.message);
+      btn.disabled = false;
+      btn.textContent = '💾 Salvar Solução';
+      return;
+    }
+
+    allTickets = allTickets.map(t => t.id === currentTicket.id ? { ...t, solucao } : t);
+    currentTicket.solucao = solucao;
+
+    const solDisplay = document.getElementById('solucao-display');
+    const solInput = document.getElementById('solucao-input');
+    const btnEdit = document.getElementById('btnEditSolucao');
+    const btnCancel = document.getElementById('btnCancelSolucao');
+
+    if (solucao) {
+      solDisplay.textContent = solucao;
+      solDisplay.style.display = 'block';
+      solInput.style.display = 'none';
+      btn.style.display = 'none';
+      btnEdit.style.display = 'flex';
+      btnCancel.style.display = 'none';
+    } else {
+      solDisplay.style.display = 'none';
+      solInput.style.display = 'block';
+      btn.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '💾 Salvar Solução';
+    }
+
+    renderBoard(filterTickets());
+    showToast('✅ Solução salva com sucesso!');
+  }
+
+  function enableEditSolucao() {
+    const solInput = document.getElementById('solucao-input');
+    const solDisplay = document.getElementById('solucao-display');
+    const btnSave = document.getElementById('btnSaveSolucao');
+    const btnEdit = document.getElementById('btnEditSolucao');
+    const btnCancel = document.getElementById('btnCancelSolucao');
+
+    solDisplay.style.display = 'none';
+    solInput.style.display = 'block';
+    solInput.focus();
+    btnSave.style.display = 'block';
+    btnSave.disabled = false;
+    btnSave.textContent = '💾 Salvar Solução';
+    btnEdit.style.display = 'none';
+    btnCancel.style.display = 'block';
+  }
+
+  function cancelEditSolucao() {
+    const solInput = document.getElementById('solucao-input');
+    const solDisplay = document.getElementById('solucao-display');
+    const btnSave = document.getElementById('btnSaveSolucao');
+    const btnEdit = document.getElementById('btnEditSolucao');
+    const btnCancel = document.getElementById('btnCancelSolucao');
+
+    // Restore original value
+    solInput.value = currentTicket.solucao || '';
+    solDisplay.style.display = 'block';
+    solInput.style.display = 'none';
+    btnSave.style.display = 'none';
+    btnEdit.style.display = 'flex';
+    btnCancel.style.display = 'none';
+  }
+
+  async function quickMove(id, newStatus) {
+    const { error } = await sb.from('chamados').update({ status: newStatus }).eq('id', id);
+    if (error) { showToast('❌ Erro: ' + error.message); return; }
+    allTickets = allTickets.map(t => t.id == id ? { ...t, status: newStatus } : t);
+    renderBoard(filterTickets());
+    showToast('✅ Movido para "' + newStatus + '"');
+  }
+
+  // ===== DELETE =====
+  function confirmDelete(id, ticketId) {
+    pendingDeleteId = id;
+    document.getElementById('confirmText').textContent = `O chamado ${ticketId} será permanentemente removido. Esta ação não pode ser desfeita.`;
+    document.getElementById('confirmOverlay').classList.add('open');
+  }
+
+  function confirmDeleteFromModal() {
+    if (!currentTicket) return;
+    closeModal();
+    confirmDelete(currentTicket.id, currentTicket.ticket_id);
+  }
+
+  function closeConfirm() {
+    pendingDeleteId = null;
+    document.getElementById('confirmOverlay').classList.remove('open');
+  }
+
+  async function executeDelete() {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    closeConfirm();
+
+    showToast('⏳ Excluindo chamado...');
+
+    try {
+      const { data, error } = await sb
+        .from('chamados')
+        .delete()
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        console.error('[DELETE ERROR]', error);
+        showRlsModal();
+        return;
+      }
+
+      // RLS silenciou sem erro — data vazio significa que não excluiu
+      if (!data || data.length === 0) {
+        console.warn('[DELETE] Nenhum registro afetado — política RLS bloqueando DELETE.');
+        showRlsModal();
+        return;
+      }
+
+      allTickets = allTickets.filter(t => t.id != id);
+      renderBoard(filterTickets());
+      if (currentView === 'charts') updateCharts();
+      showToast('🗑️ Chamado excluído com sucesso');
+
+    } catch (e) {
+      console.error('[DELETE EXCEPTION]', e);
+      showRlsModal();
+    }
+  }
+
+  function showRlsModal() {
+    document.getElementById('rlsModal').classList.add('open');
+  }
+
+  function closeRlsModal() {
+    document.getElementById('rlsModal').classList.remove('open');
+  }
+
+  function copyRlsSql() {
+    const sql = document.getElementById('rlsSqlCode').textContent;
+    navigator.clipboard.writeText(sql).then(() => {
+      const btn = document.getElementById('copyRlsBtn');
+      btn.textContent = '✅ Copiado!';
+      setTimeout(() => btn.textContent = 'Copiar', 2000);
+    });
+  }
+
+  // ===== FILTER =====
+  function filterTickets() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const prio = document.getElementById('filterPriority').value;
+    const cat = document.getElementById('filterCategory').value;
+    return allTickets.filter(t => {
+      const matchSearch = !search || t.titulo.toLowerCase().includes(search) || t.nome.toLowerCase().includes(search) || t.ticket_id.toLowerCase().includes(search);
+      const matchPrio = !prio || t.prioridade === prio;
+      const matchCat = !cat || t.categoria === cat;
+      return matchSearch && matchPrio && matchCat;
+    });
+  }
+
+  function filterCards() { renderBoard(filterTickets()); }
+
+  // ===== CHARTS =====
+  function populateChartFilters() {
+    // Years
+    const years = [...new Set(allTickets.map(t => new Date(t.created_at).getFullYear()))].sort((a,b) => b-a);
+    const yearSel = document.getElementById('chartYear');
+    const curYear = yearSel.value || new Date().getFullYear().toString();
+    yearSel.innerHTML = years.map(y => `<option value="${y}" ${y==curYear?'selected':''}>${y}</option>`).join('');
+    if (!yearSel.value && years.length) yearSel.value = years[0];
+
+    // Sectors
+    const sectors = [...new Set(allTickets.map(t => t.setor).filter(Boolean))].sort();
+    const secSel = document.getElementById('chartSector');
+    const curSec = secSel.value;
+    secSel.innerHTML = '<option value="">Todos os Setores</option>' + sectors.map(s => `<option value="${s}" ${s===curSec?'selected':''}>${s}</option>`).join('');
+  }
+
+  function getFilteredForCharts() {
+    const period = document.getElementById('chartPeriod').value;
+    const year = parseInt(document.getElementById('chartYear').value) || new Date().getFullYear();
+    const sector = document.getElementById('chartSector').value;
+
+    return allTickets.filter(t => {
+      const d = new Date(t.created_at);
+      const matchYear = d.getFullYear() === year;
+      const matchSector = !sector || t.setor === sector;
+      return matchYear && matchSector;
+    });
+  }
+
+  function updateCharts() {
+    populateChartFilters();
+    const tickets = getFilteredForCharts();
+    const period = document.getElementById('chartPeriod').value;
+    const year = document.getElementById('chartYear').value;
+
+    // Summary
+    const active = tickets.filter(t => ['aberto','andamento','aguardando'].includes(t.status)).length;
+    const done = tickets.filter(t => ['resolvido','fechado'].includes(t.status)).length;
+    document.getElementById('sum-total').textContent = tickets.length;
+    document.getElementById('sum-abertos').textContent = active;
+    document.getElementById('sum-resolvidos').textContent = done;
+
+    // Timeline
+    renderTimelineChart(tickets, period, year);
+
+    // Sectors chart
+    renderSectorsChart(tickets);
+
+    // Categories chart
+    renderCategoriesChart(tickets);
+
+    // Priority chart
+    renderPriorityChart(tickets);
+
+    // Ranking table
+    renderRankTable(tickets);
+  }
+
+  const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  function renderTimelineChart(tickets, period, year) {
+    const ctx = document.getElementById('chartTimeline').getContext('2d');
+    if (chartInstances.timeline) chartInstances.timeline.destroy();
+
+    let labels, data;
+
+    if (period === 'month') {
+      document.getElementById('period-label').textContent = `— ${year}`;
+      labels = MONTHS;
+      data = MONTHS.map((_, i) =>
+        tickets.filter(t => new Date(t.created_at).getMonth() === i).length
+      );
+    } else {
+      document.getElementById('period-label').textContent = '';
+      // All years
+      const years = [...new Set(allTickets.map(t => new Date(t.created_at).getFullYear()))].sort();
+      labels = years.map(String);
+      data = years.map(y =>
+        allTickets.filter(t => new Date(t.created_at).getFullYear() === y).length
+      );
+    }
+
+    chartInstances.timeline = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Chamados',
+          data,
+          backgroundColor: 'rgba(91,79,255,0.7)',
+          borderColor: '#5b4fff',
+          borderWidth: 1,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#e2e5ef' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  function renderSectorsChart(tickets) {
+    const ctx = document.getElementById('chartSectors').getContext('2d');
+    if (chartInstances.sectors) chartInstances.sectors.destroy();
+
+    const counts = {};
+    tickets.forEach(t => {
+      const s = t.setor || 'Não informado';
+      counts[s] = (counts[s] || 0) + 1;
+    });
+
+    const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+    const palette = ['#5b4fff','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#f97316','#6b7280'];
+
+    chartInstances.sectors = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: sorted.map(e => e[0]),
+        datasets: [{ data: sorted.map(e => e[1]), backgroundColor: palette, borderWidth: 2, borderColor: '#fff' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { font: { size: 11 }, padding: 12 } } },
+        cutout: '60%'
+      }
+    });
+  }
+
+  function renderCategoriesChart(tickets) {
+    const ctx = document.getElementById('chartCategories').getContext('2d');
+    if (chartInstances.categories) chartInstances.categories.destroy();
+
+    const counts = {};
+    tickets.forEach(t => {
+      const c = t.categoria || 'outro';
+      counts[c] = (counts[c] || 0) + 1;
+    });
+
+    const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    const palette = ['#5b4fff','#3b82f6','#10b981','#f59e0b','#f97316','#ef4444','#8b5cf6','#6b7280','#ec4899','#14b8a6'];
+
+    chartInstances.categories = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sorted.map(e => (catIcons[e[0]] || '⚙️') + ' ' + e[0]),
+        datasets: [{
+          data: sorted.map(e => e[1]),
+          backgroundColor: sorted.map((_, i) => palette[i % palette.length]),
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#e2e5ef' } },
+          y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  function renderPriorityChart(tickets) {
+    const ctx = document.getElementById('chartPriority').getContext('2d');
+    if (chartInstances.priority) chartInstances.priority.destroy();
+
+    const prioridades = ['baixa','media','alta','critica'];
+    const labels = ['🟢 Baixa','🟡 Média','🟠 Alta','🔴 Crítica'];
+    const colors = ['#10b981','#f59e0b','#f97316','#ef4444'];
+    const data = prioridades.map(p => tickets.filter(t => t.prioridade === p).length);
+
+    chartInstances.priority = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { font: { size: 11 }, padding: 14 } } }
+      }
+    });
+  }
+
+  function renderRankTable(tickets) {
+    const counts = {};
+    tickets.forEach(t => {
+      const s = t.setor || 'Não informado';
+      counts[s] = (counts[s] || 0) + 1;
+    });
+
+    const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    const max = sorted[0]?.[1] || 1;
+    const colors = ['#5b4fff','#3b82f6','#10b981','#f59e0b','#f97316','#ef4444','#8b5cf6','#6b7280'];
+
+    document.getElementById('rankBody').innerHTML = sorted.map((e, i) => `
+      <tr>
+        <td><strong style="color:var(--muted)">${i+1}</strong></td>
+        <td><strong>${e[0]}</strong></td>
+        <td><span class="rank-num">${e[1]}</span></td>
+        <td>
+          <div class="rank-bar-wrap">
+            <div class="rank-bar" style="width:${(e[1]/max*100).toFixed(0)}%;background:${colors[i%colors.length]}"></div>
+            <span style="font-size:0.75rem;color:var(--muted)">${(e[1]/tickets.length*100).toFixed(0)}%</span>
+          </div>
+        </td>
+      </tr>
+    `).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Sem dados para exibir</td></tr>';
+  }
+
+  // ===== EXPORT PDF =====
+  async function exportPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const tickets = getFilteredForCharts();
+    const year = document.getElementById('chartYear').value;
+    const sector = document.getElementById('chartSector').value || 'Todos';
+    const period = document.getElementById('chartPeriod').value === 'month' ? 'Mensal' : 'Anual';
+    const now = new Date().toLocaleString('pt-BR');
+
+    const pageW = 210;
+    const margin = 14;
+    let y = 20;
+
+    // Header
+    doc.setFillColor(27, 27, 46);
+    doc.rect(0, 0, pageW, 40, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('Relatório de Chamados', margin, 18);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Período: ${period} · Ano: ${year} · Setor: ${sector}`, margin, 26);
+    doc.text(`Gerado em: ${now}`, margin, 32);
+    doc.setTextColor(0,0,0);
+    y = 52;
+
+    // Summary boxes
+    const active = tickets.filter(t => ['aberto','andamento','aguardando'].includes(t.status)).length;
+    const done = tickets.filter(t => ['resolvido','fechado'].includes(t.status)).length;
+    const summaries = [
+      { label: 'Total de Chamados', val: tickets.length, color: [91,79,255] },
+      { label: 'Abertos / Andamento', val: active, color: [245,158,11] },
+      { label: 'Resolvidos / Fechados', val: done, color: [16,185,129] },
+    ];
+
+    const boxW = (pageW - margin*2 - 10) / 3;
+    summaries.forEach((s, i) => {
+      const x = margin + i * (boxW + 5);
+      doc.setFillColor(245,246,250);
+      doc.roundedRect(x, y, boxW, 22, 3, 3, 'F');
+      doc.setFillColor(...s.color);
+      doc.rect(x, y, 3, 22, 'F');
+      doc.setFontSize(20);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(...s.color);
+      doc.text(String(s.val), x + 8, y + 13);
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(120,120,140);
+      doc.text(s.label, x + 8, y + 19);
+    });
+
+    y += 32;
+
+    // Charts as images
+    const chartIds = ['chartTimeline','chartSectors','chartCategories','chartPriority'];
+    const chartTitles = ['Chamados por Período','Chamados por Setor','Chamados por Categoria','Chamados por Prioridade'];
+
+    for (let i = 0; i < chartIds.length; i++) {
+      const canvas = document.getElementById(chartIds[i]);
+      if (!canvas) continue;
+      const imgData = canvas.toDataURL('image/png');
+
+      const col = i % 2;
+      const chartW = (pageW - margin*2 - 8) / 2;
+      const chartH = 60;
+      const x = margin + col * (chartW + 8);
+
+      if (col === 0 && i > 0) y += chartH + 14;
+      if (y + chartH + 10 > 280) { doc.addPage(); y = 20; }
+
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(27,27,46);
+      doc.text(chartTitles[i], x, y - 2);
+      doc.setFillColor(245,246,250);
+      doc.roundedRect(x, y, chartW, chartH, 2, 2, 'F');
+      doc.addImage(imgData, 'PNG', x + 1, y + 1, chartW - 2, chartH - 2);
+    }
+
+    y += 75;
+
+    // Ranking table
+    if (y + 30 > 280) { doc.addPage(); y = 20; }
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(27,27,46);
+    doc.text('Ranking de Setores', margin, y);
+    y += 6;
+
+    const counts = {};
+    tickets.forEach(t => { const s = t.setor || 'Não informado'; counts[s] = (counts[s] || 0) + 1; });
+    const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+
+    // Table header
+    doc.setFillColor(27,27,46);
+    doc.rect(margin, y, pageW - margin*2, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'bold');
+    doc.text('#', margin+3, y+5.5);
+    doc.text('Setor', margin+12, y+5.5);
+    doc.text('Chamados', margin+100, y+5.5);
+    doc.text('%', margin+130, y+5.5);
+    y += 8;
+
+    sorted.forEach((e, i) => {
+      if (y > 275) { doc.addPage(); y = 20; }
+      doc.setFillColor(i % 2 === 0 ? 250 : 245, i % 2 === 0 ? 250 : 245, i % 2 === 0 ? 252 : 248);
+      doc.rect(margin, y, pageW - margin*2, 7, 'F');
+      doc.setTextColor(0,0,0);
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8);
+      doc.text(String(i+1), margin+3, y+5);
+      doc.text(e[0].length > 40 ? e[0].slice(0,40)+'…' : e[0], margin+12, y+5);
+      doc.setFont(undefined, 'bold');
+      doc.text(String(e[1]), margin+100, y+5);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(120,120,140);
+      doc.text((e[1]/tickets.length*100).toFixed(1) + '%', margin+130, y+5);
+      y += 7;
+    });
+
+    // Footer
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(160,160,180);
+      doc.text(`Sistema de Chamados — Infraestrutura`, margin, 290);
+      doc.text(`Página ${p} de ${totalPages}`, pageW - margin - 20, 290);
+    }
+
+    doc.save(`relatorio-chamados-${year}-${Date.now()}.pdf`);
+    showToast('📄 PDF exportado com sucesso!');
+  }
+
+
+  // ===== REPORT =====
+  const prioColors = { baixa: '#10b981', media: '#f59e0b', alta: '#f97316', critica: '#ef4444' };
+  const statusLabels = { aberto: 'Aberto', andamento: 'Em Andamento', aguardando: 'Aguardando', resolvido: 'Resolvido', fechado: 'Fechado c/ Pendência' };
+
+  function populateReportFilters() {
+    const years = [...new Set(allTickets.map(t => new Date(t.created_at).getFullYear()))].sort((a,b) => b-a);
+    const yearSel = document.getElementById('reportYear');
+    const curYear = yearSel.value || new Date().getFullYear().toString();
+    yearSel.innerHTML = '<option value="">Todos os anos</option>' + years.map(y => `<option value="${y}" ${y==curYear?'selected':''}>${y}</option>`).join('');
+
+    const sectors = [...new Set(allTickets.map(t => t.setor).filter(Boolean))].sort();
+    const secSel = document.getElementById('reportSector');
+    const curSec = secSel.value;
+    secSel.innerHTML = '<option value="">Todos os Setores</option>' + sectors.map(s => `<option value="${s}" ${s===curSec?'selected':''}>${s}</option>`).join('');
+  }
+
+  function getFilteredForReport() {
+    const year = document.getElementById('reportYear').value;
+    const month = document.getElementById('reportMonth').value;
+    const sector = document.getElementById('reportSector').value;
+    const status = document.getElementById('reportStatus').value;
+
+    return allTickets.filter(t => {
+      const d = new Date(t.created_at);
+      const matchYear  = !year   || d.getFullYear()  === parseInt(year);
+      const matchMonth = month === '' || d.getMonth() === parseInt(month);
+      const matchSec   = !sector || t.setor === sector;
+      const matchSt    = !status || t.status === status;
+      return matchYear && matchMonth && matchSec && matchSt;
+    });
+  }
+
+  function calcTempo(ticket) {
+    // Only closed/resolved tickets have a real end time — we use updated_at or estimate
+    if (!['resolvido','fechado'].includes(ticket.status)) return null;
+    const start = new Date(ticket.created_at);
+    // Use updated_at if available, otherwise fallback to now as estimate
+    const end = ticket.updated_at ? new Date(ticket.updated_at) : new Date();
+    const diffMs = end - start;
+    if (diffMs <= 0) return null;
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 60) return { text: mins + ' min', mins, cls: 'rapido' };
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return { text: hrs + 'h ' + (mins % 60) + 'min', mins, cls: hrs < 4 ? 'rapido' : 'medio' };
+    const days = Math.floor(hrs / 24);
+    return { text: days + ' dia' + (days > 1 ? 's' : ''), mins, cls: days <= 2 ? 'medio' : 'lento' };
+  }
+
+  function updateReport() {
+    populateReportFilters();
+    const tickets = getFilteredForReport();
+
+    // Stats
+    const encerrados = tickets.filter(t => ['resolvido','fechado'].includes(t.status));
+    const criticos = tickets.filter(t => t.prioridade === 'critica').length;
+    const tempos = encerrados.map(t => calcTempo(t)).filter(Boolean);
+    const avgMins = tempos.length ? Math.round(tempos.reduce((a,b) => a + b.mins, 0) / tempos.length) : null;
+    let avgText = '—';
+    if (avgMins !== null) {
+      if (avgMins < 60) avgText = avgMins + ' min';
+      else if (avgMins < 1440) avgText = Math.floor(avgMins/60) + 'h';
+      else avgText = Math.floor(avgMins/1440) + 'd';
+    }
+
+    document.getElementById('rstat-total').textContent     = tickets.length;
+    document.getElementById('rstat-resolvidos').textContent = encerrados.length;
+    document.getElementById('rstat-tempo').textContent     = avgText;
+    document.getElementById('rstat-criticos').textContent  = criticos;
+
+    // Table
+    const tbody = document.getElementById('reportBody');
+    if (tickets.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="report-empty">Nenhum chamado encontrado para os filtros selecionados.</td></tr>';
+      return;
+    }
+
+    const sorted = [...tickets].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+
+    tbody.innerHTML = sorted.map((t, i) => {
+      const tempo = calcTempo(t);
+      const abertura = new Date(t.created_at).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+      const fechamento = ['resolvido','fechado'].includes(t.status) && t.updated_at
+        ? new Date(t.updated_at).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
+        : '—';
+      const pColor = prioColors[t.prioridade] || '#6b7280';
+      const stLabel = statusLabels[t.status] || t.status;
+
+      let tempoBadge = '<span class="tempo-badge aberto">Em aberto</span>';
+      if (tempo) {
+        tempoBadge = `<span class="tempo-badge ${tempo.cls}">${tempo.text}</span>`;
+      }
+
+      const solucaoTxt = t.solucao
+        ? `<span style="font-size:0.75rem;color:#059669;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:4px;padding:2px 6px">${escHtml(t.solucao.slice(0,120))}${t.solucao.length>120?'…':''}</span>`
+        : '<span style="color:var(--muted);font-size:0.75rem">—</span>';
+      return `<tr>
+        <td class="muted">${i + 1}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--muted)">${escHtml(t.ticket_id)}</td>
+        <td><strong>${escHtml(t.setor || '—')}</strong></td>
+        <td>${escHtml(t.nome || '—')}</td>
+        <td class="muted">${escHtml(t.categoria || '—')}</td>
+        <td><span class="prio-dot" style="background:${pColor}"></span>${t.prioridade || '—'}</td>
+        <td>${stLabel}</td>
+        <td class="muted">${abertura}</td>
+        <td class="muted">${fechamento}</td>
+        <td>${tempoBadge}</td>
+        <td>${solucaoTxt}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ===== EXPORT REPORT PDF =====
+  async function exportReportPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const tickets = getFilteredForReport();
+
+    const year   = document.getElementById('reportYear').value  || 'Todos';
+    const monthEl = document.getElementById('reportMonth');
+    const monthTxt = monthEl.options[monthEl.selectedIndex].text;
+    const sector = document.getElementById('reportSector').value || 'Todos os Setores';
+    const status = document.getElementById('reportStatus').value || 'Todos';
+    const now    = new Date().toLocaleString('pt-BR');
+
+    const pageW = 297; // landscape A4
+    const pageH = 210;
+    const margin = 12;
+    let y = 0;
+
+    // ---- HEADER ----
+    doc.setFillColor(27, 27, 46);
+    doc.rect(0, 0, pageW, 36, 'F');
+    // accent bar
+    doc.setFillColor(91, 79, 255);
+    doc.rect(0, 0, 4, 36, 'F');
+
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('Relatório Detalhado de Chamados', margin + 4, 14);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(180, 180, 210);
+    doc.text(`Ano: ${year}  ·  Mês: ${monthTxt}  ·  Setor: ${sector}  ·  Status: ${status}`, margin + 4, 22);
+    doc.text(`Gerado em: ${now}   ·   Total de registros: ${tickets.length}`, margin + 4, 29);
+
+    y = 46;
+
+    // ---- SUMMARY BOXES ----
+    const encerrados = tickets.filter(t => ['resolvido','fechado'].includes(t.status));
+    const criticos = tickets.filter(t => t.prioridade === 'critica').length;
+    const tempos = encerrados.map(t => calcTempo(t)).filter(Boolean);
+    const avgMins = tempos.length ? Math.round(tempos.reduce((a,b) => a + b.mins, 0) / tempos.length) : null;
+    let avgText = '—';
+    if (avgMins !== null) {
+      if (avgMins < 60) avgText = avgMins + ' min';
+      else if (avgMins < 1440) avgText = Math.floor(avgMins/60) + 'h ' + (Math.floor(avgMins%60)) + 'min';
+      else avgText = Math.floor(avgMins/1440) + ' dia(s)';
+    }
+
+    const boxes = [
+      { label: 'Total de Chamados',    val: String(tickets.length),  color: [91,79,255] },
+      { label: 'Encerrados',           val: String(encerrados.length), color: [16,185,129] },
+      { label: 'Tempo Médio',          val: avgText,                  color: [245,158,11] },
+      { label: 'Críticos',             val: String(criticos),         color: [239,68,68] },
+    ];
+    const bW = (pageW - margin*2 - 9) / 4;
+    boxes.forEach((b, i) => {
+      const x = margin + i * (bW + 3);
+      doc.setFillColor(245,246,250);
+      doc.roundedRect(x, y, bW, 18, 2, 2, 'F');
+      doc.setFillColor(...b.color);
+      doc.rect(x, y, 3, 18, 'F');
+      doc.setFontSize(16);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(...b.color);
+      doc.text(b.val, x + 7, y + 11);
+      doc.setFontSize(7);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(120,120,140);
+      doc.text(b.label, x + 7, y + 16);
+    });
+
+    y += 26;
+
+    // ---- TABLE ----
+    const cols = [
+      { label: '#',            w: 7  },
+      { label: 'Protocolo',    w: 22 },
+      { label: 'Setor',        w: 24 },
+      { label: 'Colaborador',  w: 28 },
+      { label: 'Tipo Serviço', w: 24 },
+      { label: 'Prioridade',   w: 17 },
+      { label: 'Status',       w: 20 },
+      { label: 'Abertura',     w: 18 },
+      { label: 'Fechamento',   w: 18 },
+      { label: 'Tempo',        w: 18 },
+      { label: 'Solução',      w: 51 },
+    ];
+
+    const tableW = pageW - margin * 2;
+    const rowH = 7;
+
+    // Header row
+    doc.setFillColor(27, 27, 46);
+    doc.rect(margin, y, tableW, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(6.5);
+    doc.setFont(undefined, 'bold');
+    let cx = margin;
+    cols.forEach(c => {
+      doc.text(c.label.toUpperCase(), cx + 2, y + 5.5);
+      cx += c.w;
+    });
+    y += 8;
+
+    // Data rows
+    const sorted = [...tickets].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    const prioColorsRgb = { baixa:[16,185,129], media:[245,158,11], alta:[249,115,22], critica:[239,68,68] };
+
+    sorted.forEach((t, idx) => {
+      if (y + rowH > pageH - 12) {
+        // footer before new page
+        doc.setFontSize(6);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(160,160,180);
+        doc.text('Sistema de Chamados — Infraestrutura', margin, pageH - 6);
+        doc.addPage();
+        // repeat table header
+        y = 14;
+        doc.setFillColor(27, 27, 46);
+        doc.rect(margin, y, tableW, 8, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(6.5);
+        doc.setFont(undefined, 'bold');
+        let cx2 = margin;
+        cols.forEach(c => { doc.text(c.label.toUpperCase(), cx2 + 2, y + 5.5); cx2 += c.w; });
+        y += 8;
+      }
+
+      // row bg
+      const even = idx % 2 === 0;
+      doc.setFillColor(even ? 250 : 245, even ? 250 : 245, even ? 252 : 248);
+      doc.rect(margin, y, tableW, rowH, 'F');
+
+      const tempo = calcTempo(t);
+      const abertura = new Date(t.created_at).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit'});
+      const fechamento = ['resolvido','fechado'].includes(t.status) && t.updated_at
+        ? new Date(t.updated_at).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit'})
+        : '—';
+      const tempoTxt = tempo ? tempo.text : 'Em aberto';
+
+      const solucaoPDF = t.solucao ? t.solucao.slice(0, 60) + (t.solucao.length > 60 ? '…' : '') : '—';
+      const cells = [
+        String(idx + 1),
+        t.ticket_id || '—',
+        (t.setor || '—').slice(0, 14),
+        (t.nome || '—').slice(0, 18),
+        (t.categoria || '—').slice(0, 14),
+        t.prioridade || '—',
+        statusLabels[t.status] || t.status,
+        abertura,
+        fechamento,
+        tempoTxt,
+        solucaoPDF,
+      ];
+
+      doc.setFontSize(6.5);
+      doc.setFont(undefined, 'normal');
+      let dx = margin;
+      cells.forEach((cell, ci) => {
+        // Color prio cell
+        if (ci === 5) {
+          const rgb = prioColorsRgb[t.prioridade] || [100,100,100];
+          doc.setTextColor(...rgb);
+          doc.setFont(undefined, 'bold');
+        } else if (ci === 10) {
+          doc.setTextColor(5, 150, 105);
+          doc.setFont(undefined, 'normal');
+        } else if (ci === 1) {
+          doc.setTextColor(130,130,160);
+          doc.setFont(undefined, 'normal');
+        } else {
+          doc.setTextColor(30,30,50);
+          doc.setFont(undefined, 'normal');
+        }
+        doc.text(String(cell), dx + 2, y + 4.8);
+        dx += cols[ci].w;
+      });
+
+      // thin row separator
+      doc.setDrawColor(230,232,240);
+      doc.line(margin, y + rowH, margin + tableW, y + rowH);
+
+      y += rowH;
+    });
+
+    // ---- FOOTER on last page ----
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(6);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(160,160,180);
+      doc.text('Sistema de Chamados — Infraestrutura', margin, pageH - 5);
+      doc.text(`Página ${p} de ${totalPages}`, pageW - margin - 18, pageH - 5);
+    }
+
+    doc.save(`relatorio-detalhado-${Date.now()}.pdf`);
+    showToast('📄 Relatório exportado com sucesso!');
+  }
+
+  // ===== UTILS =====
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Modal close on overlay
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+  });
+
+  // Realtime
+  function subscribeRealtime() {
+    sb.channel('chamados').on('postgres_changes', { event: '*', schema: 'public', table: 'chamados' }, () => {
+      loadTickets();
+    }).subscribe();
+  }
+
+  // ===== LIGHTBOX =====
+  let lbImages = [];
+  let lbIndex = 0;
+
+  function openLightbox(images, idx) {
+    lbImages = typeof images === 'string' ? JSON.parse(images) : images;
+    lbIndex = idx;
+    updateLightbox();
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function updateLightbox() {
+    document.getElementById('lightboxImg').src = lbImages[lbIndex];
+    document.getElementById('lightboxCounter').textContent = (lbIndex + 1) + ' / ' + lbImages.length;
+    document.querySelector('.lightbox-prev').style.display = lbImages.length > 1 ? 'flex' : 'none';
+    document.querySelector('.lightbox-next').style.display = lbImages.length > 1 ? 'flex' : 'none';
+  }
+
+  function lightboxNav(dir) {
+    lbIndex = (lbIndex + dir + lbImages.length) % lbImages.length;
+    updateLightbox();
+  }
+
+  function closeLightbox(e) {
+    if (e && e.target !== document.getElementById('lightbox') && e.target !== document.querySelector('.lightbox-close')) return;
+    if (e && e.type === 'click' && e.target.classList.contains('lightbox-nav')) return;
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (!document.getElementById('lightbox').classList.contains('open')) return;
+    if (e.key === 'ArrowRight') lightboxNav(1);
+    if (e.key === 'ArrowLeft') lightboxNav(-1);
+    if (e.key === 'Escape') { document.getElementById('lightbox').classList.remove('open'); document.body.style.overflow = ''; }
+  });
+
+  // Init
+  document.getElementById('kanban-view').style.display = 'flex';
+  document.getElementById('kanban-view').style.flexDirection = 'column';
+  loadTickets().then(() => subscribeRealtime());
+  setInterval(loadTickets, 30000);
+</script>
+</body>
+</html>

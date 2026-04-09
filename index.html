@@ -1112,53 +1112,86 @@
     white-space: pre-wrap;
   }
 
-  .solucao-saved-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-  }
-
-  .btn-edit-solucao {
-    padding: 0.3rem 0.75rem;
-    background: transparent;
-    border: 1px solid rgba(16,185,129,0.4);
-    border-radius: 6px;
-    color: #10b981;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .btn-edit-solucao:hover { background: #10b981; color: #fff; border-color: #10b981; }
-
-  .solucao-edit-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 0.5rem;
-  }
-
-  .btn-cancel-solucao {
-    padding: 0.5rem 1rem;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--muted);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .btn-cancel-solucao:hover { background: var(--bg); color: var(--text); }
-
   /* pendencia column */
   .col-pendencia .col-header { background: rgba(239,68,68,0.10); color: #dc2626; }
   .col-pendencia .col-dot { background: #ef4444; }
+
+  /* ===== PRIORITY PICKER ===== */
+  .prio-btn {
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+    transition: transform 0.15s;
+  }
+  .prio-btn:hover { transform: scale(1.08); }
+  .prio-btn::after { content: '▾'; font-size: 0.55rem; opacity: 0.7; }
+
+  .prio-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+    z-index: 500;
+    min-width: 130px;
+    overflow: hidden;
+    animation: modalIn 0.15s ease;
+  }
+
+  .prio-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .prio-dropdown-item:hover { background: var(--bg); }
+  .prio-dropdown-item.active { background: var(--accent-light); }
+
+  .prio-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Modal priority selector */
+  .modal-prio-selector {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .modal-prio-opt {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    opacity: 0.45;
+  }
+
+  .modal-prio-opt:hover { opacity: 0.8; transform: scale(1.05); }
+  .modal-prio-opt.selected { opacity: 1; border-color: currentColor; }
+  .modal-prio-opt.p-baixa  { background: rgba(16,185,129,0.12);  color: #059669; }
+  .modal-prio-opt.p-media  { background: rgba(245,158,11,0.12);  color: #d97706; }
+  .modal-prio-opt.p-alta   { background: rgba(249,115,22,0.12);  color: #ea580c; }
+  .modal-prio-opt.p-critica{ background: rgba(239,68,68,0.12);   color: #dc2626; }
 
   /* Animations */
   @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
@@ -1495,7 +1528,15 @@
         <div class="detail-item"><label>Setor</label><p id="modal-setor"></p></div>
         <div class="detail-item"><label>Telefone</label><p id="modal-tel"></p></div>
         <div class="detail-item"><label>Categoria</label><p id="modal-cat"></p></div>
-        <div class="detail-item"><label>Prioridade</label><p id="modal-prio"></p></div>
+        <div class="detail-item">
+          <label>Prioridade</label>
+          <div class="modal-prio-selector" id="modal-prio-selector">
+            <button class="modal-prio-opt p-baixa"   onclick="changePriority('baixa')"  >🟢 Baixa</button>
+            <button class="modal-prio-opt p-media"   onclick="changePriority('media')"  >🟡 Média</button>
+            <button class="modal-prio-opt p-alta"    onclick="changePriority('alta')"   >🟠 Alta</button>
+            <button class="modal-prio-opt p-critica" onclick="changePriority('critica')">🔴 Crítica</button>
+          </div>
+        </div>
         <div class="detail-item"><label>Status</label><p id="modal-status"></p></div>
         <div class="detail-item"><label>Aberto em</label><p id="modal-date"></p></div>
       </div>
@@ -1507,16 +1548,10 @@
 
       <!-- Solução do técnico -->
       <div class="solucao-wrap" id="solucaoWrap">
-        <div class="solucao-saved-header">
-          <label>🛠️ Solução Aplicada pelo Técnico</label>
-          <button class="btn-edit-solucao" id="btnEditSolucao" onclick="enableEditSolucao()" style="display:none">✏️ Editar</button>
-        </div>
+        <label>🛠️ Solução Aplicada pelo Técnico</label>
         <div id="solucao-display" class="solucao-saved" style="display:none"></div>
         <textarea class="solucao-textarea" id="solucao-input" placeholder="Descreva aqui a solução aplicada, peças trocadas, procedimentos realizados..."></textarea>
-        <div class="solucao-edit-actions">
-          <button class="btn-save-solucao" id="btnSaveSolucao" onclick="saveSolucao()">💾 Salvar Solução</button>
-          <button class="btn-cancel-solucao" id="btnCancelSolucao" onclick="cancelEditSolucao()" style="display:none">Cancelar</button>
-        </div>
+        <button class="btn-save-solucao" id="btnSaveSolucao" onclick="saveSolucao()">💾 Salvar Solução</button>
       </div>
     </div>
     <div class="modal-footer">
@@ -1693,7 +1728,17 @@ USING (true);</pre>
         </div>
         <div class="ticket-category">${icon} ${t.categoria || 'Outro'}</div>
         <div class="ticket-bottom">
-          <span class="priority-badge p-${t.prioridade}">${t.prioridade}</span>
+          <span class="priority-badge p-${t.prioridade} prio-btn" 
+                onclick="event.stopPropagation(); togglePrioDropdown('${t.id}', this)"
+                title="Clique para alterar prioridade">
+            ${t.prioridade}
+            <div class="prio-dropdown" id="prio-dd-${t.id}" style="display:none" onclick="event.stopPropagation()">
+              <div class="prio-dropdown-item ${t.prioridade==='baixa'?'active':''}" onclick="quickChangePrio('${t.id}','baixa',event)"><span class="prio-dot" style="background:#10b981"></span> Baixa</div>
+              <div class="prio-dropdown-item ${t.prioridade==='media'?'active':''}" onclick="quickChangePrio('${t.id}','media',event)"><span class="prio-dot" style="background:#f59e0b"></span> Média</div>
+              <div class="prio-dropdown-item ${t.prioridade==='alta'?'active':''}" onclick="quickChangePrio('${t.id}','alta',event)"><span class="prio-dot" style="background:#f97316"></span> Alta</div>
+              <div class="prio-dropdown-item ${t.prioridade==='critica'?'active':''}" onclick="quickChangePrio('${t.id}','critica',event)"><span class="prio-dot" style="background:#ef4444"></span> Crítica</div>
+            </div>
+          </span>
           <span class="ticket-user">
             <span class="ticket-name-badge">${initials}</span>
             ${escHtml((t.nome || '').split(' ')[0])}
@@ -1735,7 +1780,10 @@ USING (true);</pre>
     document.getElementById('modal-setor').textContent = t.setor || '—';
     document.getElementById('modal-tel').textContent = t.telefone || '—';
     document.getElementById('modal-cat').textContent = (catIcons[t.categoria] || '') + ' ' + (t.categoria || '—');
-    document.getElementById('modal-prio').textContent = t.prioridade;
+    // Highlight selected priority
+    document.querySelectorAll('.modal-prio-opt').forEach(btn => {
+      btn.classList.toggle('selected', btn.classList.contains('p-' + t.prioridade));
+    });
     document.getElementById('modal-status').textContent = t.status;
     document.getElementById('modal-date').textContent = new Date(t.created_at).toLocaleString('pt-BR');
     document.getElementById('modal-desc').textContent = t.descricao;
@@ -1757,23 +1805,13 @@ USING (true);</pre>
     const solInput = document.getElementById('solucao-input');
     const solDisplay = document.getElementById('solucao-display');
     const btnSave = document.getElementById('btnSaveSolucao');
-    const btnEdit = document.getElementById('btnEditSolucao');
-    const btnCancel = document.getElementById('btnCancelSolucao');
     if (t.solucao) {
       solDisplay.textContent = t.solucao;
       solDisplay.style.display = 'block';
       solInput.value = t.solucao;
-      solInput.style.display = 'none';
-      btnSave.style.display = 'none';
-      btnEdit.style.display = 'flex';
-      btnCancel.style.display = 'none';
     } else {
       solDisplay.style.display = 'none';
       solInput.value = '';
-      solInput.style.display = 'block';
-      btnSave.style.display = 'block';
-      btnEdit.style.display = 'none';
-      btnCancel.style.display = 'none';
     }
     btnSave.disabled = false;
     btnSave.textContent = '💾 Salvar Solução';
@@ -1815,60 +1853,17 @@ USING (true);</pre>
     currentTicket.solucao = solucao;
 
     const solDisplay = document.getElementById('solucao-display');
-    const solInput = document.getElementById('solucao-input');
-    const btnEdit = document.getElementById('btnEditSolucao');
-    const btnCancel = document.getElementById('btnCancelSolucao');
-
     if (solucao) {
       solDisplay.textContent = solucao;
       solDisplay.style.display = 'block';
-      solInput.style.display = 'none';
-      btn.style.display = 'none';
-      btnEdit.style.display = 'flex';
-      btnCancel.style.display = 'none';
     } else {
       solDisplay.style.display = 'none';
-      solInput.style.display = 'block';
-      btn.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = '💾 Salvar Solução';
     }
 
-    renderBoard(filterTickets());
+    btn.disabled = false;
+    btn.textContent = '✅ Solução Salva!';
+    setTimeout(() => { btn.textContent = '💾 Salvar Solução'; }, 2500);
     showToast('✅ Solução salva com sucesso!');
-  }
-
-  function enableEditSolucao() {
-    const solInput = document.getElementById('solucao-input');
-    const solDisplay = document.getElementById('solucao-display');
-    const btnSave = document.getElementById('btnSaveSolucao');
-    const btnEdit = document.getElementById('btnEditSolucao');
-    const btnCancel = document.getElementById('btnCancelSolucao');
-
-    solDisplay.style.display = 'none';
-    solInput.style.display = 'block';
-    solInput.focus();
-    btnSave.style.display = 'block';
-    btnSave.disabled = false;
-    btnSave.textContent = '💾 Salvar Solução';
-    btnEdit.style.display = 'none';
-    btnCancel.style.display = 'block';
-  }
-
-  function cancelEditSolucao() {
-    const solInput = document.getElementById('solucao-input');
-    const solDisplay = document.getElementById('solucao-display');
-    const btnSave = document.getElementById('btnSaveSolucao');
-    const btnEdit = document.getElementById('btnEditSolucao');
-    const btnCancel = document.getElementById('btnCancelSolucao');
-
-    // Restore original value
-    solInput.value = currentTicket.solucao || '';
-    solDisplay.style.display = 'block';
-    solInput.style.display = 'none';
-    btnSave.style.display = 'none';
-    btnEdit.style.display = 'flex';
-    btnCancel.style.display = 'none';
   }
 
   async function quickMove(id, newStatus) {
@@ -1877,6 +1872,44 @@ USING (true);</pre>
     allTickets = allTickets.map(t => t.id == id ? { ...t, status: newStatus } : t);
     renderBoard(filterTickets());
     showToast('✅ Movido para "' + newStatus + '"');
+  }
+
+  // ===== PRIORITY =====
+  function togglePrioDropdown(id, el) {
+    // Close all other dropdowns first
+    document.querySelectorAll('.prio-dropdown').forEach(dd => {
+      if (dd.id !== 'prio-dd-' + id) dd.style.display = 'none';
+    });
+    const dd = document.getElementById('prio-dd-' + id);
+    if (!dd) return;
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function quickChangePrio(id, newPrio, e) {
+    e && e.stopPropagation();
+    // Close dropdown
+    const dd = document.getElementById('prio-dd-' + id);
+    if (dd) dd.style.display = 'none';
+
+    const { error } = await sb.from('chamados').update({ prioridade: newPrio }).eq('id', id);
+    if (error) { showToast('❌ Erro: ' + error.message); return; }
+    allTickets = allTickets.map(t => t.id == id ? { ...t, prioridade: newPrio } : t);
+    renderBoard(filterTickets());
+    showToast('🚦 Prioridade alterada para "' + newPrio + '"');
+  }
+
+  async function changePriority(newPrio) {
+    if (!currentTicket) return;
+    const { error } = await sb.from('chamados').update({ prioridade: newPrio }).eq('id', currentTicket.id);
+    if (error) { showToast('❌ Erro: ' + error.message); return; }
+    allTickets = allTickets.map(t => t.id === currentTicket.id ? { ...t, prioridade: newPrio } : t);
+    currentTicket.prioridade = newPrio;
+    // Update selector highlight
+    document.querySelectorAll('.modal-prio-opt').forEach(btn => {
+      btn.classList.toggle('selected', btn.classList.contains('p-' + newPrio));
+    });
+    renderBoard(filterTickets());
+    showToast('🚦 Prioridade alterada para "' + newPrio + '"');
   }
 
   // ===== DELETE =====
@@ -2649,6 +2682,11 @@ USING (true);</pre>
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  // Close prio dropdowns on outside click
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.prio-dropdown').forEach(dd => dd.style.display = 'none');
+  });
 
   // Modal close on overlay
   document.getElementById('modalOverlay').addEventListener('click', function(e) {
